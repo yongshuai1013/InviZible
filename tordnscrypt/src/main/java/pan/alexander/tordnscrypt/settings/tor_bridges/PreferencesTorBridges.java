@@ -52,6 +52,7 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -460,6 +461,11 @@ public class PreferencesTorBridges extends Fragment implements View.OnClickListe
                     if (!currentBridge.isEmpty() && currentBridge.contains(currentBridgesType.toString())) {
                         if (currentBridgesType.equals(snowflake)) {
                             torConfCleaned.add("Bridge " + snowflakeConfigurator.get().getConfiguration(currentBridge));
+                        } else if (currentBridgesType.equals(webtunnel)
+                                && !currentBridge.contains("servername")
+                                && isFakeSniEnabled()
+                                && !getFakeSniHosts(("Bridge " + currentBridge).length()).isEmpty()) {
+                            torConfCleaned.add("Bridge " + addWebTunnelSNIs(currentBridge));
                         } else {
                             torConfCleaned.add("Bridge " + currentBridge);
                         }
@@ -480,6 +486,20 @@ public class PreferencesTorBridges extends Fragment implements View.OnClickListe
 
         restartTorIfRequired(context);
 
+    }
+
+    private String addWebTunnelSNIs(String line) {
+        Pattern pattern = Pattern.compile("(url=\\S+)");
+        Matcher matcher = pattern.matcher(line);
+        if (matcher.find()) {
+            String urlPart = matcher.group(1);
+            line = matcher.replaceFirst(
+                    urlPart
+                            + " servernames="
+                            + getFakeSniHosts(line.length())
+            );
+        }
+        return line;
     }
 
     private boolean isFascistFirewallShouldBeDisabled() {
@@ -788,7 +808,7 @@ public class PreferencesTorBridges extends Fragment implements View.OnClickListe
                 pattern = Pattern.compile("^conjure +" + bridgeBase + ".*");
             } else if (inputLinesStr.contains(webtunnel.toString())) {
                 inputBridgesType = webtunnel.toString();
-                pattern = Pattern.compile("^webtunnel +" + bridgeBase + " +url=http(s)?://[\\w.+/-]+(?: ver=[0-9.]+)?");
+                pattern = Pattern.compile("^webtunnel +" + bridgeBase + " +url=http(s)?://[\\w.+/-]+(?: servername(s)?=[\\w.+-,]+)?(?: ver=[0-9.]+)?");
             } else {
                 pattern = Pattern.compile(bridgeBase);
             }
@@ -1111,6 +1131,9 @@ public class PreferencesTorBridges extends Fragment implements View.OnClickListe
                         String line = tor_conf.get(i);
                         if (!line.contains("#") && line.contains("Bridge ")) {
                             line = line.replace("Bridge ", "");
+                            if (line.startsWith("webtunnel") && isFakeSniEnabled()) {
+                                line = line.replaceAll("\\s*servernames=\\S*", "");
+                            }
                             bridgesInUse.add(line.trim());
                         }
                     }
@@ -1453,5 +1476,17 @@ public class PreferencesTorBridges extends Fragment implements View.OnClickListe
             swipeRefreshBridges.setRefreshing(false);
             Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
         });
+    }
+
+    private boolean isFakeSniEnabled() {
+        return viewModel.isFakeSniEnabled();
+    }
+
+    private String getFakeSniHosts(int bridgeLength) {
+        return viewModel.getFakeSniHosts(
+                Arrays.asList(requireContext().getResources()
+                        .getStringArray(R.array.default_fake_sni)),
+                bridgeLength
+        );
     }
 }
