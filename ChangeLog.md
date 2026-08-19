@@ -1518,3 +1518,8 @@
 * Reduced startup time after restarting the phone.
 * Updated translations.
 * Fixes and optimizations.
+
+**InviZible Pro beta 2.7.3**
+* Updated DNSCrypt to version 2.1.18.
+* Updated Purple I2P to version 2.61.0.
+* Fixes and optimizations.
